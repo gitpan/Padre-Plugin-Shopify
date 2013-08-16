@@ -1,0 +1,60 @@
+{
+   "abstract" : "Support for theme modification, through Padre.",
+   "author" : [
+      "unknown"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.4005, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "unknown"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Padre-Plugin-Shopify",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.38"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "File::ShareDir" : "1.00",
+            "Padre" : "0",
+            "WWW::Shopify" : "0",
+            "WWW::Shopify::Tools::Themer" : "0"
+         }
+      }
+   },
+   "provides" : {
+      "Padre::Plugin::Shopify" : {
+         "file" : "lib/Padre/Plugin/Shopify.pm",
+         "version" : "0.01"
+      },
+      "Padre::Plugin::Shopify::Exception" : {
+         "file" : "lib/Padre/Plugin/Shopify.pm",
+         "version" : 0
+      },
+      "Padre::Plugin::Shopify::Panel" : {
+         "file" : "lib/Padre/Plugin/Shopify.pm",
+         "version" : 0
+      },
+      "Padre::Plugin::Shopify::Project" : {
+         "file" : "lib/Padre/Plugin/Shopify.pm",
+         "version" : 0
+      },
+      "Padre::Plugin::Shopify::Themer" : {
+         "file" : "lib/Padre/Plugin/Shopify.pm",
+         "version" : 0
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "repository" : {
+         "url" : "https://bitbucket.org/bengmn/padre-shopify-plugin/"
+      }
+   },
+   "version" : "0.01"
+}
