@@ -1,5 +1,7 @@
 Build.PL
 lib/Padre/Plugin/Shopify.pm
+lib/Padre/Plugin/Shopify/Task.pm
+lib/Padre/Plugin/Shopify/Document.pm
 MANIFEST
 META.yml
 META.json

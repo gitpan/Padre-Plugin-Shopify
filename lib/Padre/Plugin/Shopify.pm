@@ -8,71 +8,85 @@ sub new { return bless { error => $_[1] }, $_[0]; }
 sub error { return $_[0]->{error}; }
 
 package Padre::Plugin::Shopify::Panel;
-use base 'Wx::Panel';
+use base qw(Padre::Wx::Role::Main Padre::Wx::Role::View Wx::Panel);
+
 
 sub project { return shift->{project}; }
 sub new {
-	my ($package, $project, $parent) = @_;
-	my $self = $package->SUPER::new($parent);
+	my ($package, $project) = @_;	
+	my $height = 30;
+	my $self = $package->SUPER::new($project->plugin->main->bottom, -1, [-1,-1], [-1, $height]);
 	$self->{project} = $project;
+	my $box = Wx::BoxSizer->new(Wx::wxHORIZONTAL);
+	my $theme_selector = Wx::ComboBox->new( $self, -1, "<< ALL >>", [-1, -1], [200, $height], ["<< ALL >>"]);
+	my ($autopush_button, $pull_button, $push_button) = map { Wx::BitmapButton->new( $self, -1, $self->project->plugin->{images}->{$_}, [-1, -1], [-1, $height], Wx::wxBU_EXACTFIT ) } ("refresh", "pull", "push");
+	my $loading_bar = Wx::Gauge->new($self, -1, 100, [-1, -1], [200, $height]);
+	$box->Add($_) for ($theme_selector, $autopush_button, $pull_button, $push_button);
+	$box->Add($loading_bar, 1);
+	$self->{loading_bar} = $loading_bar;
+	$self->{theme_selector} = $theme_selector;
+	$self->{autopush_button} = $autopush_button;
+	Wx::Event::EVT_BUTTON( $self, $pull_button, sub { $self->project->pull; });
+	Wx::Event::EVT_BUTTON( $self, $push_button, sub { $self->project->push; });
+	Wx::Event::EVT_BUTTON( $self, $autopush_button, sub { $self->project->autopush($self->project->autopush ? 0 : 1); });
+	$self->SetSizerAndFit($box);
+	$self->project->plugin->main->show_output(1);
+	$self->project->plugin->main->bottom->show( $self );
+	$self->project->plugin->main->refresh;
+	#$self->project->plugin->main->bottom->SetMaxSize([-1, $height]);
 	return $self;
+}
+
+sub progress {
+	my ($self, $percent) = @_;
+	$self->{loading_bar}->SetValue(int($percent * 100));
 }
 
 sub view_panel { return 'bottom'; }
 sub view_label { return Wx::gettext(shift->project->name); }
 sub view_close { shift->project->remove; }
 
-package Padre::Plugin::Shopify::Themer;
-use base 'WWW::Shopify::Tools::Themer';
-
-sub project { return shift->{project} }
-
-sub new {
-	my ($package, $project, $settings) = @_;
-	my $self = $package->SUPER::new($settings);
-	$self->{project} = $project;
-	my $directory = $project->directory;
-	$self->manifest->load("$directory/.shopmanifest") if -e "$directory/.shopmanifest";
-	return $self;
-}
-
-sub log {
-	my ($self, $message) = @_;
-	chomp($message);
-	$message =~ s/^\[.*?\]\s*//;
-	$self->project->plugin->main->status($message);
-}
-
-sub transfer_progress {
-	my ($self, $type, $theme, $files_transferred, $files_total, $file) = @_;
-	$self->project->progress($files_transferred / $files_total);
-	return $self->SUPER::transfer_progress($type, $theme, $files_transferred, $files_total, $file);
-}
-
 package Padre::Plugin::Shopify::Project;
-use WWW::Shopify::Tools::Themer;
+use parent 'Padre::Role::Task';
 use JSON qw(decode_json encode_json);
 use File::Slurp;
+use WWW::Shopify;
+use WWW::Shopify::Model::Shop;
+use Padre::Plugin::Shopify::Task;
+
+sub manifest { $_[0]->{manifest} = $_[1] if defined $_[1]; return $_[0]->{manifest}; }
+
+sub task_status {
+	my ($self, $message) = @_;
+	if ($message =~ m/^\[\s*(.*?)\s*\%\s*\]\s*(.*?)\s*$/) {
+		my $percent = $1/100;
+		$self->progress($percent);
+		$self->plugin->main->status($message);
+	}
+	elsif ($message =~ m/Error: /) {
+		$self->plugin->main->info($message);
+	}
+}
+
+sub task_finish {
+	my ($self, $task) = @_;
+	$self->plugin->main->status("Complete.");
+	$self->manifest($task->{manifest});
+	$self->progress(1);
+}
+
+sub task_run {
+	my ($self, $task) = @_;
+	$self->plugin->main->status("Starting Task...");
+	$self->manifest($task->{manifest});
+	$self->progress(0);
+}
 
 sub new {
 	my ($package, $plugin, $directory, $settings) = @_;
 	my $self = bless { %$settings, directory => $directory, plugin => $plugin, sa => undef, panel => undef, autopush => 0 }, $package;
 	my $height = 30;
-	$self->{panel} = Padre::Plugin::Shopify::Panel->new( $self, $self->plugin->main->bottom, -1, [-1, -1], [-1, $height] );
-	my $box = Wx::BoxSizer->new(Wx::wxHORIZONTAL);
-	my $theme_selector = Wx::ComboBox->new( $self->panel, -1, "<< ALL >>", [-1, -1], [200, $height], ["<< ALL >>"]);
-	my ($autopush_button, $pull_button, $push_button) = map { Wx::BitmapButton->new( $self->panel, -1, $self->plugin->{images}->{$_}, [-1, -1], [-1, $height], Wx::wxBU_EXACTFIT ) } ("refresh", "pull", "push");
-	my $loading_bar = Wx::Gauge->new($self->panel, -1, 100, [-1, -1], [200, $height]);
-	$box->Add($_) for ($theme_selector, $autopush_button, $pull_button, $push_button);
-	$box->Add($loading_bar, 1);
-	$self->{loading_bar} = $loading_bar;
-	$self->{theme_selector} = $theme_selector;
-	$self->{autopush_button} = $autopush_button;
-	Wx::Event::EVT_BUTTON( $self->panel, $pull_button, sub { $self->pull; });
-	Wx::Event::EVT_BUTTON( $self->panel, $push_button, sub { $self->push; });
-	Wx::Event::EVT_BUTTON( $self->panel, $autopush_button, sub { $self->autopush($self->autopush ? 0 : 1); });
-	$self->panel->SetSizerAndFit($box);
-	$self->plugin->main->bottom->show( $self->panel );
+	$self->{panel} = Padre::Plugin::Shopify::Panel->new( $self );
 	return $self;
 }
 
@@ -82,7 +96,7 @@ sub directory { return shift->{directory}; }
 
 sub progress {
 	my ($self, $percent) = @_;
-	$self->{loading_bar}->SetValue(int($percent * 100));
+	$self->panel->progress($percent);
 }
 
 sub remove {
@@ -100,48 +114,41 @@ sub shop {
 		$self->{shop} = WWW::Shopify::Model::Shop->from_json(decode_json(read_file("$directory/.shopinfo")));
 	}
 	else {
-		$self->{shop} = $self->sa->get_shop;
+		$self->{shop} = WWW::Shopify->new($self->url, $self->email, $self->password)->get_shop;
 		write_file("$directory/.shopinfo", encode_json($self->{shop}->to_json));
 	}
 	return $self->{shop};
 }
 
-sub themer {
-	my ($self) = @_;
-	return $self->{themer} if $self->{themer};
-	$self->{themer} = new Padre::Plugin::Shopify::Themer($self, { email => $self->email, password => $self->password, url => $self->url }) if ($self->email);
-	$self->{themer} = new Padre::Plugin::Shopify::Themer($self, { apikey => $self->api_key, password => $self->password, url => $self->url }) if (!$self->email);
-	return $self->{themer};
-}
-
-sub sa {
-	my ($self) = @_;
-	return $self->themer->sa;
-}
-
 sub push { 
 	my ($self) = @_;
 	$self->progress(0);
-	if ($self->{theme_selector}->GetValue eq "<< ALL >>") {
+	if ($self->panel->{theme_selector}->GetValue eq "<< ALL >>") {
 		$self->plugin->main->status("Pushing all themes...");
-		$self->themer->push_all($self->directory);
-		$self->plugin->main->status("Complete.");
+		$self->task_request(
+			task        => 'Padre::Plugin::Shopify::Task',
+			on_finish   => 'task_finish',
+			on_status   => 'task_status',
+			on_run 	    => 'task_run',
+			action	    => "push_all",
+			project	    => $self
+		);
 	}
-	my $directory = $self->directory;
-	$self->themer->manifest->save("$directory/.shopmanifest");
-	$self->progress(1);
 }
 sub pull {
 	my ($self) = @_;
 	$self->progress(0);
-	if ($self->{theme_selector}->GetValue eq "<< ALL >>") {
+	if ($self->panel->{theme_selector}->GetValue eq "<< ALL >>") {
 		$self->plugin->main->status("Pulling all themes...");
-		$self->themer->pull_all($self->directory);
-		$self->plugin->main->status("Complete.");
+		$self->task_request(
+			task        => 'Padre::Plugin::Shopify::Task',
+			on_finish   => 'task_finish',
+			on_status   => 'task_status',
+			on_run 	    => 'task_run',
+			action	    => "pull_all",
+			project	    => $self
+		);
 	}
-	my $directory = $self->directory;
-	$self->themer->manifest->save("$directory/.shopmanifest");
-	$self->progress(1);
 }
 
 sub url { $_[0]->{url} = $_[1] if defined $_[1]; return $_[0]->{url}; }
@@ -155,11 +162,11 @@ sub autopush {
 	if (defined $_[1]) {
 		$self->{autopush} = $_[1];
 		my $bitmap = $self->plugin->{images}->{$self->{autopush} ? "refresh-off" : "refresh"};
-		$self->{autopush_button}->SetBitmapSelected($bitmap);
-		$self->{autopush_button}->SetBitmapFocus($bitmap);
-		$self->{autopush_button}->SetBitmapDisabled($bitmap);
-		$self->{autopush_button}->SetBitmapHover($bitmap);
-		$self->{autopush_button}->SetBitmapLabel($bitmap);
+		$self->panel->{autopush_button}->SetBitmapSelected($bitmap);
+		$self->panel->{autopush_button}->SetBitmapFocus($bitmap);
+		$self->panel->{autopush_button}->SetBitmapDisabled($bitmap);
+		$self->panel->{autopush_button}->SetBitmapHover($bitmap);
+		$self->panel->{autopush_button}->SetBitmapLabel($bitmap);
 	}
 	return $_[0]->{autopush};
 }
@@ -170,7 +177,7 @@ use File::ShareDir qw(dist_dir);
 use File::Slurp;
 use JSON qw(decode_json encode_json);
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 sub new {
 	my ($package, @args) = @_;
@@ -207,16 +214,12 @@ sub padre_interfaces {
 use List::Util qw(first);
 sub padre_hooks { return {'after_save' => sub {
 	my ($self, $document) = @_;
-	# Task this so we don't freeze. $self->ide->
 	my $project = first { index($document->filename, $_->directory) != -1 } $self->projects;
 	# If this is on a project we're working on, push that theme specifically.
-	if ($project && $project->autopush) {
-		my $theme = first { index($document->filename, $_->{id}) != -1 } @{$project->themer->manifest->{themes}};
-		$project->themer->push(new WWW::Shopify::Model::Theme($theme), $project->directory);
-	}
+	$project->push if ($project && $project->autopush);
 }}; }
 
-use constant CHILDREN => 'Padre::Plugin::Shopify';
+use constant CHILDREN => 'Padre::Plugin::Shopify', 'Padre::Plugin::Shopify::Task';
 
 sub pull_all { my ($self) = @_; $_->pull for ($self->projects); }
 sub push_all { my ($self) = @_; $_->push for ($self->projects); }
@@ -272,6 +275,8 @@ sub create_shop_dialog {
 	$self->create_shop($dialog->GetPath) if $dialog->ShowModal == Wx::wxID_OK;
 }
 
+use List::Util qw(first);
+use Cwd 'abs_path';
 sub open_shop {
 	my ($self, $directory) = @_;
 	eval {
@@ -279,6 +284,7 @@ sub open_shop {
 		my ($setting_file, $manifest_file) = ("$directory/.shopsettings", "$directory/.shopmanifest");
 		die new Padre::Plugin::Shopify::Exception("Unable to find directory files.") unless -e $setting_file && -e $manifest_file;
 		my $file_settings = decode_json(read_file($setting_file));
+		return if first { abs_path($_->directory) eq $directory } $self->projects;
 		$self->add_project(Padre::Plugin::Shopify::Project->new($self, $directory, $file_settings));
 	};
 	if ($@) {
@@ -318,9 +324,30 @@ sub create_shop {
 	}
 }
 
+use Padre::Locale::T;
 sub plugin_enable {
 	my $self = shift;
 	my $return = $self->SUPER::plugin_enable(@_);
+
+	if (!Padre::MIME->find("application/liquid")->type) {
+		Padre::MIME->create(
+			type      => 'application/liquid',
+			name      => 'Liquid',
+			supertype => 'text/html',
+			document  => 'Padre::Document::Liquid',
+			extensions => 'liquid'
+		);
+		Padre::Wx::Action->new(
+			name        => "view.mime.application/liquid",
+			label       => "Liquid",
+			comment     => _T('Switch document type'),
+			menu_method => 'AppendRadioItem',
+			menu_event  => sub {
+				$_[0]->set_mimetype("application/liquid");
+			},
+		);
+		$self->main->refresh;
+	}
 	
 	my $config = $self->config_read;
 	if ($config && $config->{projects}) {
@@ -341,6 +368,21 @@ sub plugin_disable {
 	return 1;
 }
 
+sub registered_highlighters {
+
+}
+
+sub provided_highlighters {
+	return (['Padre::Document::Liquid', "Liquid", "Liquid syntax highglithing for padre."]);
+}
+
+sub highlighting_mime_types {
+	return ('Padre::Document::Liquid' => ['application/liquid']);
+}
+
+sub registered_documents {
+	return 'application/liquid' => 'Padre::Document::Liquid';
+}
 
 1;
 
