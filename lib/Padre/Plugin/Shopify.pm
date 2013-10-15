@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use Scalar::Util qw(weaken);
 
 package Padre::Plugin::Shopify::Exception;
 sub new { return bless { error => $_[1] }, $_[0]; }
@@ -9,6 +10,7 @@ sub error { return $_[0]->{error}; }
 
 package Padre::Plugin::Shopify::Panel;
 use base qw(Padre::Wx::Role::Main Padre::Wx::Role::View Wx::Panel);
+use Scalar::Util qw(weaken);
 
 
 sub project { return shift->{project}; }
@@ -17,6 +19,7 @@ sub new {
 	my $height = 30;
 	my $self = $package->SUPER::new($project->plugin->main->bottom, -1, [-1,-1], [-1, $height]);
 	$self->{project} = $project;
+	#weaken($self->{project});
 	my $box = Wx::BoxSizer->new(Wx::wxHORIZONTAL);
 	my $theme_selector = Wx::ComboBox->new( $self, -1, "<< ALL >>", [-1, -1], [200, $height], ["<< ALL >>"]);
 	my ($autopush_button, $pull_button, $push_button) = map { Wx::BitmapButton->new( $self, -1, $self->project->plugin->{images}->{$_}, [-1, -1], [-1, $height], Wx::wxBU_EXACTFIT ) } ("refresh", "pull", "push");
@@ -53,8 +56,19 @@ use File::Slurp;
 use WWW::Shopify;
 use WWW::Shopify::Model::Shop;
 use Padre::Plugin::Shopify::Task;
+use Scalar::Util qw(weaken);
+
+use Data::Dumper;
 
 sub manifest { $_[0]->{manifest} = $_[1] if defined $_[1]; return $_[0]->{manifest}; }
+
+sub update_combobox {
+	my ($self) = @_;
+	$self->panel->{theme_selector}->Clear;
+	$self->panel->{theme_selector}->Append("<< ALL >>");
+	my @themes = @{$self->manifest->{themes}};
+	$self->panel->{theme_selector}->Append($_->{name}) for (@themes);
+}
 
 sub task_status {
 	my ($self, $message) = @_;
@@ -77,7 +91,6 @@ sub task_finish {
 
 sub task_run {
 	my ($self, $task) = @_;
-	$self->plugin->main->status("Starting Task...");
 	$self->manifest($task->{manifest});
 	$self->progress(0);
 }
@@ -86,7 +99,10 @@ sub new {
 	my ($package, $plugin, $directory, $settings) = @_;
 	my $self = bless { %$settings, directory => $directory, plugin => $plugin, sa => undef, panel => undef, autopush => 0 }, $package;
 	my $height = 30;
+	#weaken($self->{plugin});
 	$self->{panel} = Padre::Plugin::Shopify::Panel->new( $self );
+	$self->manifest(decode_json(read_file($directory . "/.shopmanifest")));
+	$self->update_combobox;
 	return $self;
 }
 
@@ -120,10 +136,13 @@ sub shop {
 	return $self->{shop};
 }
 
+use List::Util qw(first);
+
 sub push { 
 	my ($self) = @_;
 	$self->progress(0);
-	if ($self->panel->{theme_selector}->GetValue eq "<< ALL >>") {
+	my $name = $self->panel->{theme_selector}->GetValue;
+	if ($name eq "<< ALL >>") {
 		$self->plugin->main->status("Pushing all themes...");
 		$self->task_request(
 			task        => 'Padre::Plugin::Shopify::Task',
@@ -134,11 +153,30 @@ sub push {
 			project	    => $self
 		);
 	}
+	else {
+		$self->plugin->main->status("Pushing theme $name...");
+		my $theme = first { $_->{name} eq $name } @{$self->manifest->{themes}};
+		if ($theme) {
+		        my $id = $theme->{id};
+			$self->task_request(
+				task        => 'Padre::Plugin::Shopify::Task',
+				on_finish   => 'task_finish',
+				on_status   => 'task_status',
+				on_run 	    => 'task_run',
+				action	    => "push:$id",
+				project	    => $self
+			);
+		}
+		else {
+			$self->plugin->main->info("Can't find theme $name.");
+		}
+	}
 }
 sub pull {
 	my ($self) = @_;
 	$self->progress(0);
-	if ($self->panel->{theme_selector}->GetValue eq "<< ALL >>") {
+	my $name = $self->panel->{theme_selector}->GetValue;
+	if ($name eq "<< ALL >>") {
 		$self->plugin->main->status("Pulling all themes...");
 		$self->task_request(
 			task        => 'Padre::Plugin::Shopify::Task',
@@ -148,6 +186,24 @@ sub pull {
 			action	    => "pull_all",
 			project	    => $self
 		);
+	}
+	else {
+		$self->plugin->main->status("Pulling theme $name...");
+		my $theme = first { $_->{name} eq $name } @{$self->manifest->{themes}};
+		if ($theme) {
+		        my $id = $theme->{id};
+			$self->task_request(
+				task        => 'Padre::Plugin::Shopify::Task',
+				on_finish   => 'task_finish',
+				on_status   => 'task_status',
+				on_run 	    => 'task_run',
+				action	    => "pull:$id",
+				project	    => $self
+			);
+		}
+		else {
+			$self->plugin->main->info("Can't find theme $name.");
+		}
 	}
 }
 
@@ -177,7 +233,7 @@ use File::ShareDir qw(dist_dir);
 use File::Slurp;
 use JSON qw(decode_json encode_json);
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 sub new {
 	my ($package, @args) = @_;

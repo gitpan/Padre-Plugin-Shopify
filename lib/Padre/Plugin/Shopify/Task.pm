@@ -43,24 +43,26 @@ sub new {
 sub run {
 	my ($self) = @_;
 	my $action = $self->{action};
-	my $themer = Padre::Plugin::Shopify::Themer->new($self, $self->{email} ?
-		{ email => $self->{email}, password => $self->{password}, url => $self->{url} } :
-		{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{url} }
-	);
-	if ($self->{manifest}) {
-		$themer->manifest($self->{manifest});
+	if ($action =~ m/(\w+):?(\d*)/) {
+		my ($action, $id) = ($1, $2);
+		my $themer = Padre::Plugin::Shopify::Themer->new($self, $self->{email} ?
+			{ email => $self->{email}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} } :
+			{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} }
+		);
+		eval {
+			if ($id) {
+				$themer->$action(new WWW::Shopify::Model::Theme({ id => $id }));
+			}
+			else {
+				$themer->$action;
+			}
+		};
+		if (my $exception = $@) {
+			my $string = $themer->read_exception($exception);
+			$themer->log("Error: $string");
+		}
+		$themer->manifest->save($self->{directory} . "/.shopmanifest");
 	}
-	else {
-		$themer->manifest->load($self->{directory} . "/.shopmanifest");
-	}
-	eval {
-		$themer->$action($self->{directory});
-	};
-	if (my $exception = $@) {
-		my $string = $themer->read_exception($exception);
-		$themer->log("Error: $string");
-	}
-	$themer->manifest->save($self->{directory} . "/.shopmanifest");
 	return 1;
 }
 
