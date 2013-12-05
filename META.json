@@ -36,7 +36,7 @@
       },
       "Padre::Plugin::Shopify" : {
          "file" : "lib/Padre/Plugin/Shopify.pm",
-         "version" : "0.04"
+         "version" : "0.05"
       },
       "Padre::Plugin::Shopify::Exception" : {
          "file" : "lib/Padre/Plugin/Shopify.pm"
@@ -60,5 +60,5 @@
          "url" : "https://bitbucket.org/bengmn/padre-shopify-plugin/"
       }
    },
-   "version" : "0.04"
+   "version" : "0.05"
 }

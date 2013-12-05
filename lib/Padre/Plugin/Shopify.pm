@@ -155,7 +155,7 @@ sub shop {
 	}
 	else {
 		# To remove unecessary code references and whatnot, which will conflict with Storable.
-		$self->{shop} = WWW::Shopify::Model::Shop->from_json(WWW::Shopify->new($self->hostname, $self->email, $self->password)->get_shop->to_json);
+		$self->{shop} = WWW::Shopify::Model::Shop->from_json(WWW::Shopify->new($self->url, $self->email, $self->password)->get_shop->to_json);
 		write_file("$directory/.shopinfo", encode_json($self->{shop}->to_json));
 	}
 	return $self->{shop};
@@ -315,7 +315,7 @@ sub set_buttons_state {
 	$self->panel->{push_button}->Enable($state);
 }
 
-sub hostname { $_[0]->{hostname} = $_[1] if defined $_[1]; return $_[0]->{hostname}; }
+sub url { $_[0]->{url} = $_[1] if defined $_[1]; return $_[0]->{url}; }
 sub api_key { $_[0]->{api_key} = $_[1] if defined $_[1]; return $_[0]->{api_key}; }
 sub password { $_[0]->{password} = $_[1] if defined $_[1]; return $_[0]->{password}; }
 sub email { $_[0]->{email} = $_[1] if defined $_[1]; return $_[0]->{email}; }
@@ -355,7 +355,7 @@ use File::ShareDir qw(dist_dir);
 use File::Slurp;
 use JSON qw(decode_json encode_json);
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 sub new {
 	my ($package, @args) = @_;
@@ -522,7 +522,7 @@ sub create_shop {
 		Wx::Event::EVT_BUTTON( $dialog, $okay_button, sub { $dialog->EndModal(Wx::wxID_OK); });
 		Wx::Event::EVT_BUTTON( $dialog, $cancel_button, sub { $dialog->EndModal(Wx::wxID_CANCEL); });
 		if ($dialog->ShowModal == Wx::wxID_OK) {
-			my $settings = { hostname => $url_edit->GetValue, password => $password_edit->GetValue };
+			my $settings = { url => $url_edit->GetValue, password => $password_edit->GetValue };
 			$settings->{api_key} = $api_key_edit->GetValue if $api_key_text->GetValue eq "API Key";
 			$settings->{email} = $api_key_edit->GetValue if $api_key_text->GetValue eq "Email";
 			$self->add_project(Padre::Plugin::Shopify::Project->new($self, $directory, $settings));

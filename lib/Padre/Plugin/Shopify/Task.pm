@@ -34,7 +34,7 @@ sub new {
 	$self->{directory} = $project->directory;
 	$self->{email} = $project->email;
 	$self->{password} = $project->password;
-	$self->{hostname} = $project->hostname;
+	$self->{url} = $project->url;
 	$self->{api_key} = $project->api_key;
 	$self->{manifest} = $project->manifest;
 	return $self;
@@ -45,24 +45,29 @@ sub run {
 	my $action = $self->{action};
 	if ($action =~ m/(\w+):?(\d*)/) {
 		my ($action, $id) = ($1, $2);
-		my $themer = Padre::Plugin::Shopify::Themer->new($self, $self->{email} ?
-			{ email => $self->{email}, password => $self->{password}, url => $self->{hostname}, directory => $self->{directory} } :
-			{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{hostname}, directory => $self->{directory} }
-		);
 		eval {
-			if ($id) {
-				$themer->$action(new WWW::Shopify::Model::Theme({ id => $id }));
+			my $themer = Padre::Plugin::Shopify::Themer->new($self, $self->{email} ?
+				{ email => $self->{email}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} } :
+				{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} }
+			);
+			eval {
+				if ($id) {
+					$themer->$action(new WWW::Shopify::Model::Theme({ id => $id }));
+				}
+				else {
+					$themer->$action;
+				}
+			};
+			if (my $exception = $@) {
+				my $string = $themer->read_exception($exception);
+				$themer->log("Error: $string");
 			}
-			else {
-				$themer->$action;
-			}
+			$themer->manifest->save($self->{directory} . "/.shopmanifest");
+			$self->{manifest} = $themer->manifest;
 		};
-		if (my $exception = $@) {
-			my $string = $themer->read_exception($exception);
-			$themer->log("Error: $string");
+		if (my $e = $@) {
+			$self->{task}->tell_status("Error: Unable to instantiate themer: $e");
 		}
-		$themer->manifest->save($self->{directory} . "/.shopmanifest");
-		$self->{manifest} = $themer->manifest;
 	}
 	return 1;
 }
