@@ -8,9 +8,11 @@ my $build = Module::Build->new(
 	dist_abstract => 'Support for theme modification, through Padre.',
 	configure_requires => { 'Module::Build' => 0.38 },
 	requires => {
-		'WWW::Shopify' => 0,
-		'WWW::Shopify::Tools::Themer' => 0,
-		'Padre' => 0
+		'WWW::Shopify' => 0.997,
+		'WWW::Shopify::Tools::Themer' => 0.11,
+		'WWW::Shopify::Liquid' => 0,
+		'Padre' => 0,
+		'Browser::Open' => 0
 	},
 	share_dir => ['share'],
 	meta_merge => {

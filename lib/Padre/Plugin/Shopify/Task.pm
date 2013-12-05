@@ -34,7 +34,7 @@ sub new {
 	$self->{directory} = $project->directory;
 	$self->{email} = $project->email;
 	$self->{password} = $project->password;
-	$self->{url} = $project->url;
+	$self->{hostname} = $project->hostname;
 	$self->{api_key} = $project->api_key;
 	$self->{manifest} = $project->manifest;
 	return $self;
@@ -46,8 +46,8 @@ sub run {
 	if ($action =~ m/(\w+):?(\d*)/) {
 		my ($action, $id) = ($1, $2);
 		my $themer = Padre::Plugin::Shopify::Themer->new($self, $self->{email} ?
-			{ email => $self->{email}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} } :
-			{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{url}, directory => $self->{directory} }
+			{ email => $self->{email}, password => $self->{password}, url => $self->{hostname}, directory => $self->{directory} } :
+			{ apikey => $self->{api_key}, password => $self->{password}, url => $self->{hostname}, directory => $self->{directory} }
 		);
 		eval {
 			if ($id) {
@@ -62,6 +62,7 @@ sub run {
 			$themer->log("Error: $string");
 		}
 		$themer->manifest->save($self->{directory} . "/.shopmanifest");
+		$self->{manifest} = $themer->manifest;
 	}
 	return 1;
 }

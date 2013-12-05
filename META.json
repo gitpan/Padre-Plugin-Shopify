@@ -4,7 +4,7 @@
       "unknown"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.4005, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "Module::Build version 0.4003, CPAN::Meta::Converter version 2.132830",
    "license" : [
       "unknown"
    ],
@@ -21,41 +21,37 @@
       },
       "runtime" : {
          "requires" : {
+            "Browser::Open" : "0",
             "File::ShareDir" : "1.00",
             "Padre" : "0",
-            "WWW::Shopify" : "0",
-            "WWW::Shopify::Tools::Themer" : "0"
+            "WWW::Shopify" : "0.997",
+            "WWW::Shopify::Liquid" : "0",
+            "WWW::Shopify::Tools::Themer" : "0.11"
          }
       }
    },
    "provides" : {
       "Padre::Document::Liquid" : {
-         "file" : "lib/Padre/Plugin/Shopify/Document.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify/Document.pm"
       },
       "Padre::Plugin::Shopify" : {
          "file" : "lib/Padre/Plugin/Shopify.pm",
-         "version" : "0.03"
+         "version" : "0.04"
       },
       "Padre::Plugin::Shopify::Exception" : {
-         "file" : "lib/Padre/Plugin/Shopify.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify.pm"
       },
       "Padre::Plugin::Shopify::Panel" : {
-         "file" : "lib/Padre/Plugin/Shopify.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify.pm"
       },
       "Padre::Plugin::Shopify::Project" : {
-         "file" : "lib/Padre/Plugin/Shopify.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify.pm"
       },
       "Padre::Plugin::Shopify::Task" : {
-         "file" : "lib/Padre/Plugin/Shopify/Task.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify/Task.pm"
       },
       "Padre::Plugin::Shopify::Themer" : {
-         "file" : "lib/Padre/Plugin/Shopify/Task.pm",
-         "version" : 0
+         "file" : "lib/Padre/Plugin/Shopify/Task.pm"
       }
    },
    "release_status" : "stable",
@@ -64,5 +60,5 @@
          "url" : "https://bitbucket.org/bengmn/padre-shopify-plugin/"
       }
    },
-   "version" : "0.03"
+   "version" : "0.04"
 }
